@@ -26,11 +26,11 @@
     M_current: .long 0
     rounds_won: .long 0
 .section .bss
-    guess_num: .long
-    secret_num: .long 
-    seed_num: .long
-    mode_bool: .byte # 1 = easy, 0 = hard
-    double_bool: .byte # 0 = no, 1 = yes
+    guess_num: .space 4
+    secret_num: .space 4
+    seed_num: .space 4
+    mode_bool: .space 1 # 1 = easy, 0 = hard
+    double_bool: .space 1 # 0 = no, 1 = yes
 
 .section .text
 .global main
@@ -147,18 +147,20 @@ easy:
     7. show hint
     8. jmp start
     */
-    movl guess_num(%rip), %eax
-    cmpl secret_num(%rip), %eax
+    movl secret_num(%rip), %eax
+    movl guess_num(%rip), %edx
+    cmpl %eax, %edx
     je win
     # On wrong answer
     incl M_current(%rip)
     movl M_max(%rip), %eax
-    cmpl M_current, %eax
-    je loss
+    cmpl %eax, M_current(%rip)
+    jge loss
     # Setting up hint courotine
     leaq after_hint(%rip), %rax
     jmp show_hint_coroutine
 after_hint:
+    jmp start
 
 show_hint_coroutine:
     # align stack
@@ -183,7 +185,7 @@ guessed_low:
 gueseed_high:
     # printing low  msg
     leaq fmt_string(%rip), %rdi
-    leaq wrong_below_retry_msg(%rip), %rsi
+    leaq wrong_above_retry_msg(%rip), %rsi
     xorq %rax, %rax
     call printf
 
@@ -217,7 +219,7 @@ loss:
     */
     # printing lost msg
     leaq fmt_string(%rip), %rdi
-    leaq won_msg(%rip), %rsi
+    leaq lose_msg(%rip), %rsi
     xorq %rax, %rax
     call printf
     popq %rbp
