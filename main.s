@@ -13,17 +13,17 @@
     config_msg: .asciz "Enter configuration seed: "
     mode_msg: .asciz "Would you like to play in easy mode? (y/n) "
     guess_msg: .asciz "What is your guess? "
-    wrong_hard_retry_msg: .asciz "Incorrect. What is your guess?"
-    wrong_above_retry_msg: .asciz "Incorrect. Your guess was above the actual number ..."
-    wrong_below_retry_msg: .asciz "Incorrect. Your guess was below the actual number ..."
+    wrong_hard_retry_msg: .asciz "Incorrect. What is your guess? "
+    wrong_above_retry_msg: .asciz "Incorrect. Your guess was above the actual number ... "
+    wrong_below_retry_msg: .asciz "Incorrect. Your guess was below the actual number ... "
     wrong_over_msg: .asciz "Incorrect. "
-    lose_msg: .asciz "Game over, you lost :(. The correct answer was %d"
+    lose_msg: .asciz "\nGame over, you lost :(. The correct answer was %d\n"
     double_msg: .asciz "Double or nothing! Would you like to continue to another round? (y/n) "
-    won_msg: .asciz "Congratz! You won %d rounds!"
+    won_msg: .asciz "Congratz! you won %d rounds!\n"
     # numbers
-    N_num: .long 10 
-    M_max: .long 5
-    M_current: .long 0
+    n_num: .long 10 
+    m_max: .long 5
+    m_current: .long 0
     rounds_won: .long 0
 .section .bss
     guess_num: .space 4
@@ -36,7 +36,7 @@
 .global main
 
 main:
-    # Config msg
+    # config msg
     pushq %rbp
     movq %rsp, %rbp
 
@@ -44,36 +44,35 @@ main:
     leaq config_msg(%rip), %rsi
     movq $0, %rax
     call printf
-    # Taking input - int
+    # taking input - int
     leaq fmt_int(%rip), %rdi
     leaq seed_num(%rip), %rsi
     movq $0, %rax
     call scanf
-    #Seeding
+    #seeding
     movl seed_num(%rip), %edi
     call srand
-    # Setting secret
+    # setting secret
     call rand
     movl %eax, %edx
-    andl $0xF, %edx
     movl %edx, %eax
-    movl N_num(%rip), %ecx
+    movl n_num(%rip), %ecx
     xorl %edx, %edx
     divl %ecx
     incl %edx
     movl %edx, secret_num(%rip)
 
-    # Mode msg
+    # mode msg
     leaq fmt_string_no_new_line(%rip), %rdi
     leaq mode_msg(%rip), %rsi
     movq $0, %rax
     call printf
-    # Taking input - chr
+    # taking input - chr
     leaq fmt_chr(%rip), %rdi
     leaq mode_bool(%rip), %rsi
     movq $0, %rax
     call scanf
-    # Setting the correct bool value
+    # setting the correct bool value
     movb mode_bool(%rip), %al
     cmpb $'y', %al
     je set_easy_mode
@@ -86,14 +85,14 @@ set_hard_mode:
     movb $0, mode_bool(%rip)
     jmp start
 double_or_nothing:
-    /* Pesuedo
+    /* pesuedo
     0. inc rounds won 
     1. print double_msg
     2. take input into double_bool
     3. cmp double bool
 
     4.1. seed_num *= 2
-    4.1 M_num *= 2
+    4.1 m_num *= 2
     4.1 jmp start
 
     4.0. jmp win
@@ -103,7 +102,7 @@ double_or_nothing:
     leaq double_msg(%rip), %rsi
     xorq %rax, %rax
     call printf
-    # Taking input - chr
+    # taking input - chr
     leaq fmt_chr(%rip), %rdi
     leaq double_bool(%rip), %rsi
     movq $0, %rax
@@ -112,22 +111,21 @@ double_or_nothing:
     movb double_bool(%rip), %al
     cmpb $'n', %al
     je win 
-    # Do double or nothing
+    # do double or nothing
     sall $1, seed_num(%rip)
-    sall $1, N_num(%rip)
+    sall $1, n_num(%rip)
     jmp reset_round
 
 reset_round:
-    movl $0, M_current(%rip)
-    #Re-Seeding
+    movl $0, m_current(%rip)
+    #re-seeding
     movl seed_num(%rip), %edi
     call srand
-    # Setting secret
+    # setting secret
     call rand
     movl %eax, %edx
-    andl $0xF, %edx
     movl %edx, %eax
-    movl N_num(%rip), %ecx
+    movl n_num(%rip), %ecx
     xorl %edx, %edx
     divl %ecx
     incl %edx
@@ -150,10 +148,10 @@ after_guess:
     je easy
     jmp hard
 
-take_guess_coroutine: #WORKS!
+take_guess_coroutine: #works!
     /* 
-    Takes guess with scanf and stores in guess_num
-    Returns back to address stored inside %rax 
+    takes guess with scanf and stores in guess_num
+    returns back to address stored inside %rax 
     */
     # align stack
     pushq %rbp
@@ -165,7 +163,7 @@ take_guess_coroutine: #WORKS!
     leaq guess_num(%rip), %rsi
     xorq %rax, %rax
     call scanf
-    # Clean up
+    # clean up
     popq %rax
     movq %rbp, %rsp
     popq %rbp
@@ -174,12 +172,12 @@ take_guess_coroutine: #WORKS!
     jmp *%rax
 
 easy:
-    /* Pesudeo
+    /* pesudeo
     1. cmp guess to secret
     2. equ -> jmp to win
     3. neq:
-    4. inc M_current
-    5. cmp M_max to M_current
+    4. inc m_current
+    5. cmp m_max to m_current
     6. equ -> jmp to loss
     7. show hint
     8. jmp start
@@ -188,15 +186,16 @@ easy:
     movl guess_num(%rip), %edx
     cmpl %eax, %edx
     je double_or_nothing
-    # On wrong answer
-    incl M_current(%rip)
-    movl M_max(%rip), %eax
-    cmpl %eax, M_current(%rip)
-    jge loss
-    # Setting up hint courotine
+    # on wrong answer
+    # setting up hint courotine
     leaq after_hint(%rip), %rax
     jmp show_hint_coroutine
+
 after_hint:
+    incl m_current(%rip)
+    movl m_max(%rip), %eax
+    cmpl %eax, m_current(%rip)
+    jge loss
     jmp start
 
 show_hint_coroutine:
@@ -229,7 +228,7 @@ gueseed_high:
     jmp hint_go_back
 
 hint_go_back:
-    # Clean up
+    # clean up
     popq %rax
     movq %rbp, %rsp
     popq %rbp
@@ -238,13 +237,13 @@ hint_go_back:
     jmp *%rax
 
 hard:
-    /* Pesudeo 
-    1. Take guess - coroutine
+    /* pesudeo 
+    1. take guess - coroutine
     2. cmp guess to secret
     3. equ -> jump to win
     4. neq:
-    5. inc M_current
-    6. cmp M_max to M_current
+    5. inc m_current
+    6. cmp m_max to m_current
     7. equ -> jmp to loss
     8. jmp to hard
     */
@@ -252,28 +251,28 @@ hard:
     movl guess_num(%rip), %edx
     cmpl %eax, %edx
     je double_or_nothing
-    # On wrong answer
-    incl M_current(%rip)
-    movl M_max(%rip), %eax
-    cmpl %eax, M_current(%rip)
-    jge loss
-    # printing inco
+    # on wrong answer
     leaq fmt_string_no_new_line(%rip), %rdi
     leaq wrong_over_msg(%rip), %rsi
     movq $0, %rax
     call printf
 
+    incl m_current(%rip)
+    movl m_max(%rip), %eax
+    cmpl %eax, m_current(%rip)
+    jge loss
     jmp start
 loss:
-    /* Pesudeo 
+    /* pesudeo 
     1. print lose_msg with secret_num
     2. exit - popq %rbp and ret
     */
     # printing lost msg
-    leaq fmt_string(%rip), %rdi
-    leaq lose_msg(%rip), %rsi
+    leaq lose_msg(%rip), %rdi
+    movl secret_num(%rip), %esi
     xorq %rax, %rax
     call printf
+
     popq %rbp
     ret
 win:
