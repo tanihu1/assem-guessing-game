@@ -16,7 +16,7 @@
     wrong_hard_retry_msg: .asciz "Incorrect. What is your guess?"
     wrong_above_retry_msg: .asciz "Incorrect. Your guess was above the actual number ..."
     wrong_below_retry_msg: .asciz "Incorrect. Your guess was below the actual number ..."
-    wrong_over_msg: .asciz "Incorrect."
+    wrong_over_msg: .asciz "Incorrect. "
     lose_msg: .asciz "Game over, you lost :(. The correct answer was %d"
     double_msg: .asciz "Double or nothing! Would you like to continue to another round? (y/n) "
     won_msg: .asciz "Congratz! You won %d rounds!"
@@ -87,6 +87,7 @@ set_hard_mode:
     jmp start
 double_or_nothing:
     /* Pesuedo
+    0. inc rounds won 
     1. print double_msg
     2. take input into double_bool
     3. cmp double bool
@@ -97,6 +98,42 @@ double_or_nothing:
 
     4.0. jmp win
     */
+    incl rounds_won(%rip)
+    leaq fmt_string_no_new_line(%rip), %rdi
+    leaq double_msg(%rip), %rsi
+    xorq %rax, %rax
+    call printf
+    # Taking input - chr
+    leaq fmt_chr(%rip), %rdi
+    leaq double_bool(%rip), %rsi
+    movq $0, %rax
+    call scanf
+
+    movb double_bool(%rip), %al
+    cmpb $'n', %al
+    je win 
+    # Do double or nothing
+    sall $1, seed_num(%rip)
+    sall $1, N_num(%rip)
+    jmp reset_round
+
+reset_round:
+    movl $0, M_current(%rip)
+    #Re-Seeding
+    movl seed_num(%rip), %edi
+    call srand
+    # Setting secret
+    call rand
+    movl %eax, %edx
+    andl $0xF, %edx
+    movl %edx, %eax
+    movl N_num(%rip), %ecx
+    xorl %edx, %edx
+    divl %ecx
+    incl %edx
+    movl %edx, secret_num(%rip)
+    jmp start
+
 
 start:
     # printing guess msg
@@ -150,7 +187,7 @@ easy:
     movl secret_num(%rip), %eax
     movl guess_num(%rip), %edx
     cmpl %eax, %edx
-    je win
+    je double_or_nothing
     # On wrong answer
     incl M_current(%rip)
     movl M_max(%rip), %eax
@@ -211,7 +248,22 @@ hard:
     7. equ -> jmp to loss
     8. jmp to hard
     */
+    movl secret_num(%rip), %eax
+    movl guess_num(%rip), %edx
+    cmpl %eax, %edx
+    je double_or_nothing
+    # On wrong answer
+    incl M_current(%rip)
+    movl M_max(%rip), %eax
+    cmpl %eax, M_current(%rip)
+    jge loss
+    # printing inco
+    leaq fmt_string_no_new_line(%rip), %rdi
+    leaq wrong_over_msg(%rip), %rsi
+    movq $0, %rax
+    call printf
 
+    jmp start
 loss:
     /* Pesudeo 
     1. print lose_msg with secret_num
@@ -230,9 +282,10 @@ win:
     2. exit - popq %rbp and ret
     */
     # printing won msg
-    leaq fmt_string(%rip), %rdi
-    leaq won_msg(%rip), %rsi
+    leaq won_msg(%rip), %rdi
+    movl rounds_won(%rip), %esi
     xorq %rax, %rax
     call printf
+
     popq %rbp
     ret
